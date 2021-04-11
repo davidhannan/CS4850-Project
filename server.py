@@ -3,7 +3,7 @@
 
 #David Hannan
 #4/9/21
-#Chat room server program for CS850
+#Chat room server program using socket api for CS850
 
 
 import socket
@@ -32,11 +32,17 @@ def checkFunction(conn, data):
     elif command[0] == "login":
         #call login funct
         result = login(conn, command[1], command[2])
-        updateUserState(command[1], True)
-        #get User obj and put in pickle to send to client
-        logged = getUser(command[1])
-        logged = pickle.dumps(logged)
-        conn.send(logged)
+        if result == True:
+            updateUserState(command[1], True)
+            #get User obj and put in pickle to send to client
+            logged = getUser(command[1])
+            logged = pickle.dumps(logged)
+            #header string to indicate login success to client
+            header = bytes("login",'utf-8')
+            #send header and userObj pickle to client
+            conn.send(header + logged)
+        elif result == False:
+            conn.send(bytes("Denied. Username or password incorrect",'utf-8'))
     elif command[0] == "send":
         #split send command into 3 parts (2 spaces) (send,username,message content)
         command = data.split(" ", 2)
@@ -61,12 +67,7 @@ def checkFunction(conn, data):
             error = "Denied. Please login first"
     elif command[0] == "retry":
         #response for if no user is logged in
-        print("retry")
         conn.send(bytes("retrying",'utf-8'))
-
-
-
-
 
 
 def checkUserExists(user):
@@ -79,6 +80,7 @@ def checkUserExists(user):
     
     return True
         
+
 #func to put a new user into the users.txt file
 def newUser(conn,username,passw):
     #open the file and format the new user entry
@@ -93,6 +95,7 @@ def newUser(conn,username,passw):
     success = "New user account created. Please login."
     print("New user account created.")
     conn.send(bytes(success,'utf-8'))
+
 
 #func to login a user
 def login(conn,user,passw):
@@ -119,24 +122,32 @@ def login(conn,user,passw):
                 return True
     File.close()
     return False
+
+
 #func to change user logged in status
 def updateUserState(user, state):
     for name in users:
         username = name.username
         if username == user:
             name.logStatus = state
+
+
 #func to get logged in state of user
 def getUserState(user):
     for name in users:
         username = name.username
         if username == user:
             return name.logStatus
+
+
 #get a specific User obj
 def getUser(user):
     for name in users:
         username = name.username
         if username == user:
             return name
+
+
 #create the User obj list
 def usersInit():
     users = []
@@ -151,6 +162,7 @@ def usersInit():
         users.append(User(username,False))
     File.close()
     return users
+
 
 print("My chat room server. Version one.")
 

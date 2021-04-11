@@ -2,7 +2,7 @@
 
 #David Hannan
 #4/9/21
-#Chat room client program for CS850
+#Chat room client program using socket api for CS850
 
 
 import socket
@@ -27,28 +27,54 @@ while True:
 
         #if statement to check for login, logout, and send commands
         if commandParts[0] == "login":
-            #send login command to server
-            s.send(bytes(command,'utf-8'))
-            #receive user object in a pickle for later use
-            userLogged = s.recv(1024)
-            #unpickle User
-            userLogged = pickle.loads(userLogged)
-            print("login confirmed")
-        elif commandParts[0] == "logout":
-            #make sure a user is logged in
-            if userLogged and userLogged.logStatus == True:
-                #use User object to tell the server which user to logout
-                msg = commandParts[0] + " " + userLogged.username
-                s.send(bytes(msg,'utf-8'))
+            #check for proper command usage
+            if len(commandParts) == 3:
+                #send login command to server
+                s.send(bytes(command,'utf-8'))
+                #receive response from server
+                
                 response = s.recv(1024)
-                #get logout response and close socket connection
-                response = response.decode('utf-8')
-                print(response)
-                s.close
-                break
+                #decode header bytes
+                result = response[:5]
+                result = result.decode('utf-8')
+                if result == "login":
+                    #if header bytes match, get the user pickle
+                    userObj = response[5:]
+                    #unpickle User
+                    userLogged = pickle.loads(userObj)
+                    print("login confirmed")
+                else:
+                    #header bytes dont match, print error response
+                    print(response.decode('utf-8'))
+                
             else:
-                #handle if no user is logged in
-                print("Denied. Please login first.")
+                print("Command usage: login <user> <pass>")
+                s.send(bytes("retry",'utf-8'))
+                response = s.recv(1024)
+                response = response.decode('utf-8')
+        elif commandParts[0] == "logout":
+            #check for proper command usage
+            if len(commandParts) == 1:
+            #make sure a user is logged in
+                if userLogged and userLogged.logStatus == True:
+                #use User object to tell the server which user to logout
+                    msg = commandParts[0] + " " + userLogged.username
+                    s.send(bytes(msg,'utf-8'))
+                    response = s.recv(1024)
+                    #get logout response and close socket connection
+                    response = response.decode('utf-8')
+                    print(response)
+                    s.close
+                    break
+                else:
+                    #handle if no user is logged in
+                    print("Denied. Please login first.")
+                    command = "retry"
+                    s.send(bytes(command,'utf-8'))
+                    response = s.recv(1024)
+                    response = response.decode('utf-8')
+            else:
+                print("Command usage: logout")
                 command = "retry"
                 s.send(bytes(command,'utf-8'))
                 response = s.recv(1024)
@@ -58,16 +84,24 @@ while True:
             if userLogged and userLogged.logStatus == True:
                 #split the send command to keep the message content together
                 sendMsg = command.split(" ", 1)
-                #insert the username into the command to send to the server
-                sendMsg.insert(1,userLogged.username)
-                sendStr = ""
-                #put the send command together and send to server
-                for ele in sendMsg:
-                    sendStr += ele + " "
-                s.send(bytes(sendStr,'utf-8'))
-                response = s.recv(1024)
-                response = response.decode('utf-8')
-                print(response)
+                #check for proper send usage
+                if len(sendMsg) == 2 and sendMsg[0] == "send":
+                    #insert the username into the command to send to the server
+                    sendMsg.insert(1,userLogged.username)
+                    sendStr = ""
+                    #put the send command together and send to server
+                    for ele in sendMsg:
+                        sendStr += ele + " "
+                    s.send(bytes(sendStr,'utf-8'))
+                    response = s.recv(1024)
+                    response = response.decode('utf-8')
+                    print(response)
+                else:
+                    print("Command usage: send <message>")
+                    command = "retry"
+                    s.send(bytes(command,'utf-8'))
+                    response = s.recv(1024)
+                    response = response.decode('utf-8')
             else:
                 #handle if no user is logged in
                 print("Denied. Please login first.")
@@ -75,11 +109,29 @@ while True:
                 s.send(bytes(command,'utf-8'))
                 response = s.recv(1024)
                 response = response.decode('utf-8')
+        elif commandParts[0] == "newuser":
+            #check for proper newuser usage
+            if len(commandParts) == 3:
+                s.send(bytes(command,'utf-8'))
+                response = s.recv(1024)
+                response = response.decode('utf-8')
+                print(response)
+            else:
+                print("Command usage: newuser <username> <password>")
+                command = "retry"
+                s.send(bytes(command,'utf-8'))
+                response = s.recv(1024)
+                response = response.decode('utf-8')
         else:
-            #handle for newuser command since it doesnt need anything special
+            #catch invalid commands
+            print("Invalid Command. Potential commands are:")
+            if userLogged.logStatus == True:
+                print("send <message>\nlogout")
+            elif userLogged.logStatus == False:
+                print("newuser <username> <password>\nlogin <username> <password>")
+            command = "retry"
             s.send(bytes(command,'utf-8'))
             response = s.recv(1024)
             response = response.decode('utf-8')
-            print(response)
             
         
